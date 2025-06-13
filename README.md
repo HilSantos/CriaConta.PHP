@@ -1,11 +1,15 @@
 # CriaConta.PHP
 
 <?php
+// Inclui arquivos de segurança, cabeçalho e conexão com o banco de dados //
 include('segurancazero.php');
 include('cabecalho.php');
 include('conn.php');
 
+// Verifica se o formulário foi enviado via método POST //
 if($_SERVER['REQUEST_METHOD']=='POST'){
+
+    // Captura os dados enviados pelo formulário //
     $nome = $_POST['nome'];
     $apelido = $_POST['apelido'];
     $cpf = $_POST['cpf'];
@@ -18,7 +22,7 @@ if($_SERVER['REQUEST_METHOD']=='POST'){
     $uf = $_POST['uf'];
     $nascimento = $_POST['dt_nascimento'];
     $telefone = $_POST['telefone'];
-    $nivel = 1;
+    $nivel = 1; // Define o nível de acesso do usuário (1 = cliente) //
     $senha = $_POST['senha'];
     $senha2 = $_POST['senha2'];
 
@@ -27,35 +31,43 @@ if($_SERVER['REQUEST_METHOD']=='POST'){
         header('Location:cadastracliente.php?msg=As senhas devem ser iguais');
         exit();
     }
-    
-$tempero = rand(100000000,999999999) . date("Y-m-d H:i:s") . strrev($senha);
-    $tempero = md5($tempero);
-    $senha = md5($senha . $tempero);
 
-//verifique se o e-mail está cadastrado//
-$sql = "SELECT COUNT(*) FROM tb_usuarios WHERE email_usuario = '$email'";
-$result = mysqli_query($link, $sql);
-$quant = mysqli_fetch_array($result);
-mysqli_close($link);
+    // Gera um "tempero" (salt) para a senha, combinando número aleatório, data e senha invertida //
+    $tempero = rand(100000000,999999999) . date("Y-m-d H:i:s") . strrev($senha);
+    $tempero = md5($tempero); // Aplica hash MD5 ao tempero //
+    // Verifica se as senhas digitadas são iguais //
+    $senha = md5($senha . $tempero); // Aplica hash MD5 à senha concatenada com o tempero //
 
-if($quant[0] == 1){
-    header('Location: cadastracliente.php?msg=Email já cadastrado');
+    // Verifica se o e-mail já está cadastrado no banco de dados //
+    $sql = "SELECT COUNT(*) FROM tb_usuarios WHERE email_usuario = '$email'";
+    $result = mysqli_query($link, $sql);
+    $quant = mysqli_fetch_array($result);
+    mysqli_close($link);
+
+    // Se o e-mail já estiver cadastrado, redireciona com mensagem de erro //
+    if($quant[0] == 1){
+        header('Location: cadastracliente.php?msg=Email já cadastrado');
+        exit();
+    }
+
+    // Monta a query para inserir o novo usuário no banco de dados //
+    $sql = "INSERT INTO `tb_usuarios`(`nome_usuario`, `apelido_usuario`, `cpf_usuario`, `email_usuario`, `cep_usuario`, 
+    `rua_usuario`, `numero_rua_usuario`, `bairro_usuario`, `cidade_usuario`, `uf_usuario`, `nascimento_usuario`, `senha_usuario`, 
+    `telefone_usuario`, `nivel_usuario`, tempero_usuario) VALUES (
+        '$nome','$apelido','$cpf','$email','$cep','$rua','$numero','$bairro','$cidade','$uf','$nascimento','$senha',
+        '$telefone','$nivel','$tempero')";
+
+    // Executa a inserção no banco //
+    mysqli_query($link, $sql);
+
+    // Fecha a conexão com o banco //
+    mysqli_close($link);
+
+    // Redireciona para a tela de login com mensagem de sucesso //
+    header('location: login.php?msg=Conta criada, faça seu login.');
     exit();
-}
-$sql ="INSERT INTO `tb_usuarios`(`nome_usuario`, `apelido_usuario`, `cpf_usuario`, `email_usuario`, `cep_usuario`, 
-`rua_usuario`, `numero_rua_usuario`, `bairro_usuario`, `cidade_usuario`, `uf_usuario`, `nascimento_usuario`, `senha_usuario`, 
-`telefone_usuario`, `nivel_usuario`, tempero_usuario) VALUES ('$nome','$apelido'
-,'$cpf','$email','$cep','$rua','$numero','$bairro','$cidade','$uf','$nascimento','$senha',
-'$telefone','$nivel','$tempero')";
-
-mysqli_query($link,$sql);
-
-mysqli_close($link);
-header('location: login.php?msg=Conta criada, faça seu login.');
-exit();
-
-}
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -118,15 +130,47 @@ include('msg_user.php');
     </form>
 </body>
 </html>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 <script>
-        document.addEventListener("DOMContentLoaded", function() {
+$(document).ready(function() {
+    // Máscara para o campo CPF //
+    $('#cpf').mask('000.000.000-00', {reverse: true});
+    // Máscara para o campo CEP //
+    $('#cep').mask('00000-000');
+    // Máscara para o campo Telefone //
+    $('#telefone').mask('(00) 00000-0000', {placeholder: "(XX) XXXXX-XXXX"});
+    // Máscara para o campo Número //
+    $('#numero').mask('00000', {placeholder: "00000"});
+    // Máscara para o campo UF //
+    $('#uf').mask('AA', {placeholder: "XX"});
+    // Máscara para o campo Data de Nascimento //
+    $('#dt_nascimento').mask('00/00/0000', {placeholder: "DD/MM/AAAA"});
+    // Máscara para o campo Apelido //
+    $('#alias').mask('AAAAAAAAAAAAAAA', {placeholder: "Apelido"});
+    // Máscara para o campo Rua //
+    $('#rua').mask('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', {placeholder: "Logradouro"});
+    // Máscara para o campo Bairro //
+    $('#bairoo').mask('AAAAAAAAAAAAAAAAAAAAAA', {placeholder: "Bairro"});
+    // Máscara para o campo Cidade //
+    $('#cidade').mask('AAAAAAAAAAAAAAAAAAAAAA', {placeholder: "Cidade"});
+    // Máscara para o campo Email //
+    $('#email').mask('A', {
+        translation: {
+            'A': { pattern: /[\w@\-.+]/, recursive: true }
+        },
+        placeholder: "Email"
+    });
+});
+// Script para buscar o endereço pelo CEP usando a API ViaCEP //
+document.addEventListener("DOMContentLoaded", function() {
             const cepInput = document.getElementById("cep");
  
-  cepInput.addEventListener("blur", function() {
+cepInput.addEventListener("blur", function() {
                 let cep = cepInput.value.replace(/\D/g, ''); // Remove tudo que não é número //
  
-  if (cep.length === 8) { // Valida se são 8 dígitos //
-                          // Faz a requisição para a API ViaCEP //
+if (cep.length === 8) { // Valida se são 8 dígitos //
+                    // Faz a requisição para a API ViaCEP //
                     fetch(`https://viacep.com.br/ws/${cep}/json/`)
                         .then(response => {
                             if (!response.ok) {
@@ -139,7 +183,7 @@ include('msg_user.php');
                                 alert("CEP não encontrado.");
                                 return;
                             }
-                            // Preenche os campos do formulário
+                            // Preenche os campos do formulário //
                             document.getElementById("rua").value = data.logradouro;
                             document.getElementById("bairro").value = data.bairro;
                             document.getElementById("cidade").value = data.localidade;
@@ -155,3 +199,11 @@ include('msg_user.php');
             });
         });
 </script>
+<?php
+} else {
+    // Se o formulário não foi enviado, redireciona para a página de cadastro //
+    header('Location: cadastracliente.php');
+    exit();
+}
+// Fim do script criaconta.php //
+?>
